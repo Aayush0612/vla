@@ -1,7 +1,9 @@
+from flask import Flask, request, jsonify
 import ollama
 import re
 import os
-from pathlib import Path
+
+app = Flask(__name__)
 
 # Define robot action functions without predefined behaviors
 def go_ahead(distance_meters):
@@ -62,22 +64,17 @@ def swim(speed_percent, direction_degrees):
     return f"swim({speed_percent}, {direction_degrees})"
 
 def get_action_plan(image_path, user_prompt=""):
-    """Pass image and prompt directly to the LLM without modification"""
-    # Clean the path string
     image_path = image_path.strip()
     if (image_path.startswith('"') and image_path.endswith('"')) or \
        (image_path.startswith("'") and image_path.endswith("'")):
         image_path = image_path[1:-1]
     
-    # Ensure path exists
     if not os.path.exists(image_path):
         return f"Error: Image path does not exist: {image_path}"
     
-    # If no user prompt is provided, use a default prompt
     if not user_prompt:
         user_prompt = "Based on this image, generate robot commands for the most logical task."
     
-    # Create prompt for the vision model
     prompt = f"""You are a Vision-Language-Action (VLA) model controlling a robot. Based on the image and the user's instruction: "{user_prompt}", generate a sequence of robot commands.
 
 Available functions:
@@ -109,9 +106,8 @@ Provide your response as a Python list of function calls with appropriate parame
 ]
 
 Return ONLY the command list with NO explanations or additional text."""
-
+    
     try:
-        # Send request with image and prompt
         response = ollama.chat(
             model='llama3.2-vision',
             messages=[
@@ -123,7 +119,6 @@ Return ONLY the command list with NO explanations or additional text."""
             ]
         )
         
-        # Handle different response structures
         if isinstance(response, dict):
             if 'message' in response and 'content' in response['message']:
                 return response['message']['content']
@@ -136,88 +131,22 @@ Return ONLY the command list with NO explanations or additional text."""
     except Exception as e:
         return f"Error processing image: {str(e)}"
 
-def parse_action_plan(plan_text):
-    """Extract commands from the model's response without modifying them"""
-    # Try to find Python list in the response
-    list_pattern = r'\[(.*?)\]'
-    list_match = re.search(list_pattern, plan_text, re.DOTALL)
+@app.route('/process-image', methods=['POST'])
+def process_image_api():
+    data = request.json
     
-    if list_match:
-        actions_text = list_match.group(1).strip()
-        if '\n' in actions_text:
-            actions = [action.strip().strip(',').strip('"\'') for action in actions_text.split('\n') if action.strip()]
-        else:
-            actions = [action.strip().strip(',').strip('"\'') for action in actions_text.split(',')]
-        return actions
+    if 'image_path' not in data or not data['image_path']:
+        return jsonify({"error": "Image path is required"}), 400
     
-    # Try to find individual function calls if no list is found
-    function_pattern = r'([a-zA-Z_]+\([^)]*\))'
-    function_calls = re.findall(function_pattern, plan_text)
+    image_path = data['image_path']
+    user_prompt = data.get('user_prompt', "")
     
-    if function_calls:
-        return function_calls
+    commands = get_action_plan(image_path, user_prompt)
     
-    # If no structured commands found, return empty list
-    return []
+    if isinstance(commands, str) and commands.startswith("Error"):
+        return jsonify({"error": commands}), 400
+    
+    return jsonify({"commands": commands})
 
-def validate_command(cmd):
-    """Minimal validation to ensure command is executable without replacing it"""
-    try:
-        func_match = re.match(r'([a-zA-Z_]+)\((.*)\)', cmd)
-        if not func_match:
-            return False
-            
-        func_name, params_str = func_match.groups()
-        
-        # Check if function exists
-        if func_name not in globals():
-            return False
-        
-        # Allow parameterless functions
-        if func_name in ["release", "detect_objects"] and not params_str.strip():
-            return True
-            
-        # For functions with parameters, validate they are numbers
-        if params_str:
-            params = [p.strip() for p in params_str.split(',')]
-            for p in params:
-                try:
-                    # Skip validation for empty parameters (like optional ones)
-                    if p.strip():
-                        float(p)
-                except ValueError:
-                    return False
-            
-        return True
-    except Exception:
-        return False
-
-def process_image_and_act(image_path, user_prompt=""):
-    """Process image and return commands exactly as the LLM generated them (if valid)"""
-    # Get raw response from vision model
-    plan_text = get_action_plan(image_path, user_prompt)
-    
-    # Parse the commands from the response
-    commands = parse_action_plan(plan_text)
-    
-    # Filter out invalid commands but don't replace them
-    valid_commands = [cmd for cmd in commands if validate_command(cmd)]
-    
-    # If no valid commands were found, return the raw response for debugging
-    if not valid_commands and commands:
-        return ["Error: No valid commands found in model output.", f"Raw output: {plan_text}"]
-    elif not valid_commands:
-        return ["Error: Model did not generate any commands.", f"Raw output: {plan_text}"]
-    
-    return valid_commands
-
-if __name__ == "__main__":
-    try:
-        image_path = input("Enter the path to the image: ")
-        user_prompt = input("Enter your instruction (or press Enter for default): ")
-        
-        commands = process_image_and_act(image_path, user_prompt)
-        print("\n".join(commands))
-        
-    except Exception as e:
-        print(f"Error: {str(e)}")
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
