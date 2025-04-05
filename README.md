@@ -108,7 +108,7 @@ The system supports the following commands:
 - `change_speed(speed_percent)` - Change the robot's movement speed
 
 
-##Limitations
+## Limitations
 The current system has several important limitations:
 
 Distance Perception:
