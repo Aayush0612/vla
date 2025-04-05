@@ -112,19 +112,19 @@ The system supports the following commands:
 The current system has several important limitations:
 
 Distance Perception:
-The language model cannot accurately estimate real-world distances from images
-Commands require explicit distance parameters (e.g., go_ahead(1.5)) that may not correspond to actual spatial conditions
-No depth perception algorithm to reliably measure distances to objects or obstacles
+-The language model cannot accurately estimate real-world distances from images
+-Commands require explicit distance parameters (e.g., go_ahead(1.5)) that may not correspond to actual spatial conditions
+-No depth perception algorithm to reliably measure distances to objects or obstacles
 
 Memory System:
-The system lacks persistent memory between commands
-Each image processing is independent with no context from previous observations
-Cannot remember or refer to previously identified objects or locations
-No mapping capability to build environment representations in a semantic way over time
+-The system lacks persistent memory between commands
+-Each image processing is independent with no context from previous observations
+-Cannot remember or refer to previously identified objects or locations
+-No mapping capability to build environment representations in a semantic way over time
 
 Other Limitations:
-Limited understanding of complex spatial relationships
-No obstacle detection or collision avoidance system like SLAM
-Basic movement commands that may not handle complex navigation challenges
-Processing latency between image capture and command execution
-Limited environmental adaptation capabilities in changing conditions
+-Limited understanding of complex spatial relationships
+-No obstacle detection or collision avoidance system like SLAM
+-Basic movement commands that may not handle complex navigation challenges
+-Processing latency between image capture and command execution
+-Limited environmental adaptation capabilities in changing conditions
